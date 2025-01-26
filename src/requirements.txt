@@ -16,3 +16,8 @@ pytubefix
 opencv-python
 pillow
 
+# FAST API 
+fastapi
+uvicorn[standard]
+nest-asyncio
+aiohttp
