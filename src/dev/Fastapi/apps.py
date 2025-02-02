@@ -1,6 +1,7 @@
 import os, time, json
 import uvicorn
-from fastapi import FastAPI
+
+from fastapi import FastAPI,  HTTPException, Request, status
 import logging
 import asyncio
 import aiohttp
@@ -9,15 +10,20 @@ import google.generativeai as genai
 from fastapi.security.api_key import APIKeyHeader 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from data_model.vertex_data_model import SelectModel
 
 
-logger= logging.getLogger(__name__)
+logger= logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 PORT = os.environ.get('PORT', default=8000)
 logLevel = os.getenv("LOG_LEVEL", default="INFO")
 API_KEY = os.getenv("GOOGLE_API_KEY", default="")
+
+# set current used model
+usedModel = ""
+
 
 def set_logging_level(level):
     if level == "DEBUG":
@@ -69,9 +75,14 @@ async def first_api():
     return {"message": "Hello Johnson"}
 
 @app.post("setModels")
-async def set_models():
-    
-    return {"models": models}
+async def set_models(model: SelectModel):
+    usedModel = model
+    return {"models": usedModel}
+
+@app.get("/getmodel")
+async def get_model():
+    return {"model": usedModel}
+
 
 @app.get("/getmodel-list")
 async def get_model_list():
