@@ -10,7 +10,8 @@ import google.generativeai as genai
 from fastapi.security.api_key import APIKeyHeader 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from data_model.vertex_data_model import SelectModel
+from data_model.vertex_data_model import SelectModel, GenerateContext
+from vertexai_service import VertexAIService
 
 
 logger= logging.getLogger("uvicorn")
@@ -45,24 +46,26 @@ set_logging_level(logLevel)
 logger.info("PORT: " + PORT)
 # logger.info("Google API Key: " + API_KEY)
 
-class CFG(object):
-    Temperature = 0.5
-    TopP = 0.9
-    TopK = 50
-    MaxOutputTokens = 100
-    ResponseMimeType1 = "text/plain"
+# class CFG(object):
+#     Temperature = 0.5
+#     TopP = 0.9
+#     TopK = 50
+#     MaxOutputTokens = 100
+#     ResponseMimeType1 = "text/plain"
 
-generation_config = {    
-    "temperature": CFG.Temperature,
-    "top_p" : CFG.TopP,
-    "top_k" : CFG.TopK, 
-     "max_output_tokens" : CFG.MaxOutputTokens,
-    # "response_mime_type": CFG.ResponseMimeType1
+# generation_config = {    
+#     "temperature": CFG.Temperature,
+#     "top_p" : CFG.TopP,
+#     "top_k" : CFG.TopK, 
+#      "max_output_tokens" : CFG.MaxOutputTokens,
+#     # "response_mime_type": CFG.ResponseMimeType1
     
-}
+# }
 
 # initialize google api client
-genai.configure(api_key = API_KEY)
+# genai.configure(api_key = API_KEY)
+genaiVertex = VertexAIService()
+
 
 # inialtize FastAPI app
 app = FastAPI()
@@ -75,21 +78,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def initalizeModel(modelName):
-    """
-    initialize the model
-    """
-    model = genai.GenerativeModel(modelName, generation_config=generation_config)
-    return model
-
-
-def getListModels():
-    """
-    get gemini current support models list
-    """
-    models = genai.list_models()
-    listModels = [ model.name for model in models]
-    return listModels
 
 @app.get("/")
 async def first_api():
@@ -97,26 +85,28 @@ async def first_api():
 
 @app.post("/setModels")
 async def set_models(modelName: SelectModel):
-    global usedModel, model
     usedModel = modelName.modelName
     # initialize the model
-    model = initalizeModel(usedModel)
+    await genaiVertex.initalizeModel(usedModel)
     return {"models": usedModel}
 
 @app.get("/getmodel")
 async def get_model():
-    global usedModel
-    return {"model": usedModel}
+    # global usedModel
+    currentModel = genaiVertex.getCurrentModel()
+    return {"model": currentModel}
 
-@app.post("/app/chat")
-async def chat(request: Request):
-    global model
-    response = model.chat(request.json())
-    return response
+@app.post("/generateContext")
+async def generateContext( context :GenerateContext):
+    # global model
+    # prompt = context.prompt
+    ret = await genaiVertex.generateContext(context.prompt)
+    return {"response": ret}
+
 
 @app.get("/getmodel-list")
 async def get_model_list():
-    listModels = getListModels()
+    listModels = await genaiVertex.getListModels()
     logger.info("List of models: " + str(listModels))
     return {"models": f"{listModels}"}
 

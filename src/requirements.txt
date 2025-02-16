@@ -1,6 +1,8 @@
 streamlit
 gradio
-google-generativeai
+# google SDK
+google-generativeai # old version Google gnerative AI SDK
+google-genai # new version Google gnerative AI SDK
 python-dotenv
 pandas
 numpy
