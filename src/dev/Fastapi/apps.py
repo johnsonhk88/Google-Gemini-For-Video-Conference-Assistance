@@ -13,6 +13,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from data_model.vertex_data_model import SelectModel, GenerateContext
 from vertexai_service import VertexAIService
 
+from rq import Queue
+from redis import Redis
+from pydantic import BaseModel
+from jobs import *
+
+class JobData(BaseModel):
+    lowest : int
+    highest : int
+
 
 logger= logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +34,11 @@ API_KEY = os.getenv("GOOGLE_API_KEY", default="")
 # set current used model
 usedModel = ""
 model = None
+
+host = "localhost" #"127.0.0.1"
+# start redis connection
+redis_conn = Redis(host=host, port=6379)
+taskQueue = Queue("task_queue", connection=redis_conn)
 
 
 def set_logging_level(level):
@@ -46,21 +60,6 @@ set_logging_level(logLevel)
 logger.info("PORT: " + PORT)
 # logger.info("Google API Key: " + API_KEY)
 
-# class CFG(object):
-#     Temperature = 0.5
-#     TopP = 0.9
-#     TopK = 50
-#     MaxOutputTokens = 100
-#     ResponseMimeType1 = "text/plain"
-
-# generation_config = {    
-#     "temperature": CFG.Temperature,
-#     "top_p" : CFG.TopP,
-#     "top_k" : CFG.TopK, 
-#      "max_output_tokens" : CFG.MaxOutputTokens,
-#     # "response_mime_type": CFG.ResponseMimeType1
-    
-# }
 
 # initialize google api client
 # genai.configure(api_key = API_KEY)
@@ -80,8 +79,23 @@ app.add_middleware(
 
 
 @app.get("/")
-async def first_api():
-    return {"message": "Hello Johnson"}
+async def index():
+    return { 
+          "success": True,
+            "message": "pong"}
+
+
+# create a job enqueuing the task
+@app.post("/job")
+async def create_job(jobData: JobData):
+    lowest = jobData.lowest
+    highest = jobData.highest
+    task = taskQueue.enqueue(print_number, lowest, highest) # enqueue
+    return {
+           "success": True,
+          "task_id": task.id}
+
+
 
 @app.post("/setModels")
 async def set_models(modelName: SelectModel):

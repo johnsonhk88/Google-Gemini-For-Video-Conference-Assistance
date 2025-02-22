@@ -23,3 +23,8 @@ fastapi
 uvicorn[standard]
 nest-asyncio
 aiohttp
+pydantic
+
+# Message Queue
+rq
+redis
