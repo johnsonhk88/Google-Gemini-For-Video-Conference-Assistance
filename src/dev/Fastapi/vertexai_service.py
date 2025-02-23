@@ -1,7 +1,8 @@
 import numpy
 import pandas as pd
 # import google generative AI API
-import google.generativeai as genai  
+import google.generativeai as genai   # old version google generative
+# from google import genai  # new version google generative
 
 
 import os, time, json
@@ -42,23 +43,34 @@ class VertexAIService:
     def __init__(self , key= API_KEY):
         # self.data = pd.read_csv("data.csv")
         # initialize google api client
-        genai.configure(api_key = key)
+        genai.configure(api_key = key) # for older verion google api client
+        # self.client = genai.Client(api_key='GEMINI_API_KEY')
         self.usedModel = ""    
         self.model = None
+        self.chatSession = None
 
     def getCurrentModel(self):
         """
         get current used model
         """
         return self.usedModel
+    
+    def getChatSession(self, model):
+        """
+        get the chat session
+        """
+        return model.start_chat() 
 
 
-    async def initalizeModel(self, modelName:"models/gemini-2.0-flash-lite-preview"):
+    async def initalizeModel(self, modelName:"models/gemini-2.0-flash-lite-preview" , 
+                             config= generation_config, 
+                             instruction= None):
         """
         initialize the model
         """
         self.usedModel = modelName
-        self.model = genai.GenerativeModel(modelName, generation_config=generation_config)
+        self.model = genai.GenerativeModel(modelName, generation_config=config , system_instruction=instruction)
+        self.chatSession = self.getChatSession(self.model)
 
 
     async def getListModels(self):
@@ -69,9 +81,19 @@ class VertexAIService:
         listModels = [ model.name for model in models]
         return listModels
     
-    async def generateContext(self, prompt):
+    async def generateContext(self, prompt,  config= generation_config):
         """
         generate context based on the prompt
         """
-        response = self.model.generate_content(prompt)
+        response = self.model.generate_content(prompt, generation_config=config)
         return response.text
+    
+    async def chatMode(self, prompt):
+        """
+        chat mode
+        """
+        textRes = []
+        response = self.chatSession.send_message(prompt, stream=True)
+        for chunk in response:
+            textRes.append(chunk.text)
+        return ''.join(textRes)

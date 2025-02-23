@@ -10,7 +10,7 @@ import google.generativeai as genai
 from fastapi.security.api_key import APIKeyHeader 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from data_model.vertex_data_model import SelectModel, GenerateContext
+from data_model.vertex_data_model import SelectModel, GenerateContext, ChatModel
 from vertexai_service import VertexAIService
 
 from rq import Queue
@@ -100,8 +100,17 @@ async def create_job(jobData: JobData):
 @app.post("/setModels")
 async def set_models(modelName: SelectModel):
     usedModel = modelName.modelName
+    modelConfig = None
+    if modelName.modelConfig is not None:
+        modelConfig = modelName.modelConfig.model_dump()
     # initialize the model
-    await genaiVertex.initalizeModel(usedModel)
+    logger.debug(f"Selected model: {usedModel}")
+    logger.debug(f"Model config: {modelConfig}")
+    # initialize the model
+    if modelConfig is not None:
+        await genaiVertex.initalizeModel(usedModel, modelConfig)
+    else:
+        await genaiVertex.initalizeModel(usedModel)
     return {"models": usedModel}
 
 @app.get("/getmodel")
@@ -114,15 +123,37 @@ async def get_model():
 async def generateContext( context :GenerateContext):
     # global model
     # prompt = context.prompt
-    ret = await genaiVertex.generateContext(context.prompt)
+    modelConfig = None
+    if context.modelConfig is not None:
+        modelConfig = context.modelConfig.model_dump()
+    if modelConfig is not None:
+        ret = await genaiVertex.generateContext(context.prompt , modelConfig)
+    else:
+        ret = await genaiVertex.generateContext(context.prompt)
     return {"response": ret}
 
+@app.post("/chat")
+async def chat(chat: ChatModel):
+    # global model
+    prompt = chat.prompt
+    # response = chat.response
+    ret = await genaiVertex.chatMode(prompt)
+    return {"response": ret}
+    
 
 @app.get("/getmodel-list")
 async def get_model_list():
     listModels = await genaiVertex.getListModels()
     logger.info("List of models: " + str(listModels))
     return {"models": f"{listModels}"}
+
+@app.post("/download-youtube")
+async def download_youtube(url: string):
+    # download video
+    # return {"message": "Video downloaded successfully"}
+    # implemenation Message Queued to download video
+    pass
+
 
 ## HTTP exceptions
 @app.exception_handler(HTTPException)
@@ -132,6 +163,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"detail": exc.detail},
     )
+
 
 
 if __name__ == "__main__":
